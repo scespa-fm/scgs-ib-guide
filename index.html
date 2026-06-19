@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SCGS初等部 IB理解の手引き</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  body { margin: 0; padding: 0; }
+  * { box-sizing: border-box; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect } = React;
+
+
+const t = {
+  bg: "#F8F6F1", surface: "#FFFFFF", ink: "#1A1A1A", muted: "#6B6860", faint: "#E8E4DC",
+  green: "#2C6E49", greenPale: "#EAF3EE", blue: "#1D4E89", bluePale: "#EAF0F8",
+  brown: "#7A4F2D", brownPale: "#F5EDE4", purple: "#6B3FA0", purplePale: "#F2EBF9",
+  red: "#B03A2E", redPale: "#FAEAEA", amber: "#B07D2A", amberPale: "#FFF8E6",
+};
+
+const routeConfig = {
+  A: { color: t.green, pale: t.greenPale, label: "Route A", emoji: "📚" },
+  B: { color: t.blue, pale: t.bluePale, label: "Route B", emoji: "🔍" },
+  C: { color: t.purple, pale: t.purplePale, label: "Route C", emoji: "🏠" },
+  D: { color: t.red, pale: t.redPale, label: "Route D", emoji: "🧭" },
+};
+
+function Tag({ text, color }) {
+  return <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", background: color + "22", color, border: `1px solid ${color}44` }}>{text}</span>;
+}
+
+function Quote({ children }) {
+  return <div style={{ margin: "20px 0", padding: "14px 20px", borderLeft: `4px solid ${t.green}`, background: t.greenPale, borderRadius: "0 8px 8px 0", fontSize: 15, color: t.ink, lineHeight: 1.8, fontStyle: "italic" }}>{children}</div>;
+}
+
+function Note({ children }) {
+  return <div style={{ margin: "16px 0", padding: "12px 16px", background: t.amberPale, border: `1px solid ${t.amber}44`, borderRadius: 8, fontSize: 13, color: t.amber, lineHeight: 1.7 }}>⚠️ {children}</div>;
+}
+
+function SectionDivider() {
+  return <div style={{ height: 1, background: t.faint, margin: "32px 0" }} />;
+}
+
+function ChapterSummary({ items, color }) {
+  return (
+    <div style={{ background: color + "11", border: `1px solid ${color}33`, borderRadius: 10, padding: "16px 20px", marginBottom: 28 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color, letterSpacing: "0.08em", marginBottom: 10 }}>この章でわかること</div>
+      {items.map((item, i) => (
+        <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, fontSize: 14, color: t.ink, lineHeight: 1.6 }}>
+          <span style={{ color, fontWeight: 700, flexShrink: 0 }}>▸</span><span>{item}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CompareTable({ headers, rows, colors }) {
+  return (
+    <div style={{ overflowX: "auto", margin: "20px 0" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <thead><tr>{headers.map((h, i) => <th key={i} style={{ padding: "10px 12px", background: i === 0 ? t.faint : (colors[i - 1] || t.green), color: i === 0 ? t.muted : "#fff", fontWeight: 700, textAlign: "left", borderBottom: `2px solid ${t.faint}`, fontSize: 12 }}>{h}</th>)}</tr></thead>
+        <tbody>{rows.map((row, i) => <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : t.bg }}>{row.map((cell, j) => <td key={j} style={{ padding: "10px 12px", color: j === 0 ? t.muted : t.ink, fontWeight: j === 0 ? 700 : 400, borderBottom: `1px solid ${t.faint}`, lineHeight: 1.6, fontSize: j === 0 ? 12 : 13 }}>{cell}</td>)}</tr>)}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function ActionTable({ rows }) {
+  return (
+    <div style={{ overflowX: "auto", margin: "20px 0" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <thead><tr>
+          <th style={{ padding: "10px 12px", background: t.muted, color: "#fff", textAlign: "left", fontSize: 12 }}>今の声かけ</th>
+          <th style={{ padding: "10px 12px", background: t.green, color: "#fff", textAlign: "left", fontSize: 12 }}>試してみる声かけ</th>
+        </tr></thead>
+        <tbody>{rows.map(([a, b], i) => <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : t.bg }}>
+          <td style={{ padding: "10px 12px", color: t.muted, borderBottom: `1px solid ${t.faint}`, lineHeight: 1.6 }}>{a}</td>
+          <td style={{ padding: "10px 12px", color: t.ink, borderBottom: `1px solid ${t.faint}`, lineHeight: 1.6 }}>{b}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function NextRoutes({ items, onNavigate }) {
+  const routeLabels = { A: "基礎学力は大丈夫？", B: "探究型学習って何をしているの？", C: "家庭でどう関わればいい？", D: "将来どうつながるの？" };
+  const routeEmojis = { A: "📚", B: "🔍", C: "🏠", D: "🧭" };
+  return (
+    <div style={{ marginTop: 36 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: t.muted, marginBottom: 14, letterSpacing: "0.06em" }}>新しい問いへ</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {items.map(({ text, route }, i) => (
+          <button key={i} onClick={() => onNavigate(route)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 8, background: "#fff", border: `1px solid ${routeConfig[route].color}44`, cursor: "pointer", textAlign: "left", width: "100%" }}>
+            <span style={{ fontSize: 20, flexShrink: 0 }}>{routeEmojis[route]}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: routeConfig[route].color, marginBottom: 3 }}>Route {route}：{routeLabels[route]}</div>
+              <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.6 }}>{text}</div>
+            </div>
+            <span style={{ color: routeConfig[route].color, fontSize: 16, flexShrink: 0 }}>→</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ATLSkillsTable() {
+  const items = [
+    ["Thinking Skills｜思考スキル", "批判的・創造的に考え、学んだことを別の場面でも使い、自分の学び方を振り返る"],
+    ["Communication Skills｜コミュニケーションスキル", "聞く・話す・読む・書く力、ICTを使って情報をやりとりする力"],
+    ["Self-Management Skills｜自己管理スキル", "時間や課題をうまく管理する力、粘り強さや気持ちのコントロール"],
+    ["Research Skills｜リサーチスキル", "情報を集め、整理し、評価し、伝える力"],
+    ["Social Skills｜社会性スキル", "他者と良い関係を築き、力を合わせて取り組む力"],
+  ];
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", background: t.blue, borderRadius: "8px 8px 0 0", padding: "8px 12px" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", width: 140, flexShrink: 0 }}>スキル</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>どんな力か</div>
+      </div>
+      {items.map(([label, desc], i) => {
+        const [en, ja] = label.split("｜");
+        return (
+          <div key={i} style={{ display: "flex", alignItems: "center", background: i % 2 === 0 ? "#fff" : t.bluePale, borderBottom: `1px solid ${t.faint}`, padding: "10px 12px" }}>
+            <div style={{ width: 140, flexShrink: 0, paddingRight: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: t.blue }}>{en}</div>
+              <div style={{ fontSize: 12, color: t.muted, marginTop: 2 }}>{ja}</div>
+            </div>
+            <div style={{ fontSize: 13, color: t.ink, lineHeight: 1.6 }}>{desc}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function LearnerProfileTable() {
+  const items = [
+    ["Inquirers", "探究する人", "好奇心を持ち、自ら問いを立てて学び続ける"],
+    ["Knowledgeable", "知識のある人", "概念を深く理解し、様々な分野の知識を持つ"],
+    ["Thinkers", "考える人", "批判的・創造的に思考し、複雑な問題に向き合う"],
+    ["Communicators", "コミュニケーター", "複数の言語や方法で自分を表現し、他者の話を聞く"],
+    ["Principled", "信念のある人", "誠実さと強い倫理観を持ち、自分の行動に責任を持つ"],
+    ["Open-minded", "心を開く人", "自分と異なる視点や文化を尊重し、謙虚に学ぶ"],
+    ["Caring", "思いやりのある人", "共感と思いやりを持ち、人や環境のために行動する"],
+    ["Risk-takers", "挑戦する人", "不確かな状況にも勇気を持って向き合い、失敗から学ぶ"],
+    ["Balanced", "バランスのとれた人", "知的・身体的・感情的な健康を大切にする"],
+    ["Reflective", "振り返る人", "自分の学びや経験を振り返り、次に活かす"],
+  ];
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", background: t.blue, borderRadius: "8px 8px 0 0", padding: "8px 12px" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", width: 140, flexShrink: 0 }}>学習者像</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>どんな姿か</div>
+      </div>
+      {items.map(([en, ja, desc], i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", background: i % 2 === 0 ? "#fff" : t.bluePale, borderBottom: `1px solid ${t.faint}`, padding: "10px 12px" }}>
+          <div style={{ width: 140, flexShrink: 0, paddingRight: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: t.blue }}>{en}</div>
+            <div style={{ fontSize: 12, color: t.muted, marginTop: 2 }}>{ja}</div>
+          </div>
+          <div style={{ fontSize: 13, color: t.ink, lineHeight: 1.6 }}>{desc}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FAQ() {
+  const items = [
+    { q: "IBは英語教育ですか？", a: "英語は重要な要素ですが、IBの本質は英語そのものではなく、探究を通じた学び方のフレームワークです。英語力と探究する力を同時に育てる環境、というイメージが近いかもしれません。" },
+    { q: "基礎学力は大丈夫ですか？", a: "漢字・計算・読解はSCGSでも学びます。一条校として学習指導要領に基づいた教育内容を扱うことが前提です。ただし「基礎学力」の定義自体が、学習指導要領の改訂で広がっています。知識を持つことだけでなく、使って考え、表現する力も含まれます。" },
+    { q: "家庭では何をすればいいですか？", a: "特別なことより、日常の声かけが大切です。「なぜ？」「どう思う？」「どこまでわかった？」といった問いが、子どもの探究を支えます。答えを教えるより、一緒に考える姿勢を見せることが、一番の関わり方かもしれません。" },
+    { q: "ドリル学習はIBと矛盾しますか？", a: "矛盾しません。ただし、ドリルを目的化せず「考えるための道具を磨くもの」として位置づけると、子どもの取り組み方が変わることがあります。" },
+    { q: "探究型学習で、基礎的な知識は身につきますか？", a: "IBは知識を軽視しているのではなく、文脈の中に置いています。「なぜこれを知る必要があるのか」が見える状態で学ぶ設計です。" },
+    { q: "将来の大学進学に影響しますか？", a: "IB資格は国内外の大学に認められており、国内でもIB入試を導入する大学が増えています。ただし進路については学校に直接確認するのが一番です。" },
+    { q: "英語が苦手でも大丈夫ですか？", a: "イマージョン環境に浸かることで自然に習得していく設計です。入学時点での英語力より、環境に慣れていく過程を大切にしています。詳しくは学校にご確認ください。" },
+  ];
+  const [open, setOpen] = useState(null);
+  return (
+    <div style={{ marginTop: 8 }}>
+      {items.map((item, i) => (
+        <div key={i} style={{ border: `1px solid ${t.faint}`, borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
+          <button onClick={() => setOpen(open === i ? null : i)} style={{ width: "100%", padding: "14px 18px", background: open === i ? t.greenPale : "#fff", border: "none", cursor: "pointer", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: t.ink, lineHeight: 1.5 }}>Q. {item.q}</span>
+            <span style={{ color: t.green, fontSize: 18, flexShrink: 0 }}>{open === i ? "▲" : "▼"}</span>
+          </button>
+          {open === i && <div style={{ padding: "14px 18px", background: t.greenPale, fontSize: 14, color: t.ink, lineHeight: 1.8, borderTop: `1px solid ${t.green}22` }}>A. {item.a}</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Page0() {
+  return (
+    <div>
+      <Note>このコンテンツは保護者有志による非公式な学習・理解促進のためのものです。学校公式の見解ではありません。正確な情報は学校からの案内をご確認ください。</Note>
+      <div style={{ margin: "28px 0 20px" }}>
+        <p style={{ fontSize: 15, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>この手引きは、SCGS初等部の学びを3つの視点から一緒に考えるものです。</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+          {[
+            { num: "①", label: "世界の教育の方向性", name: "OECD Learning Compass 2030", color: t.brown },
+            { num: "②", label: "日本の教育の方向性", name: "学習指導要領", color: t.blue },
+            { num: "③", label: "学校での実践", name: "IB PYP", color: t.green },
+          ].map(({ num, label, name, color }) => (
+            <div key={num} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "#fff", border: `1px solid ${color}33`, borderLeft: `4px solid ${color}`, borderRadius: "0 8px 8px 0" }}>
+              <span style={{ fontSize: 16, fontWeight: 800, color, minWidth: 24 }}>{num}</span>
+              <div>
+                <div style={{ fontSize: 11, color: t.muted, marginBottom: 2 }}>{label}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: t.ink }}>{name}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: 14, color: t.muted, lineHeight: 1.7 }}>目的は用語を覚えることではなく、お子さんの学びが少し見えやすくなることです。気になるところから読んでください。</p>
+      </div>
+      <SectionDivider />
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: t.ink, marginBottom: 12 }}>この手引きを開いたあなたへ</h2>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>一つだけ最初にお伝えしたいことがあります。この手引きは、お子さんのためだけのものではありません。読んでいる保護者の皆さん自身が、この学びを一緒に楽しめるといいな、と思って作りました。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 16 }}>お子さんがSCGSに入学し、学校の様子を見聞きしながら、こんなことを感じていませんか。</p>
+      {["IBって良さそうだけど、正直よくわかっていない", "探究とか言われても、具体的に何をしているのか掴めない", "PYP、Learner Profile、Unit of Inquiry……覚えなきゃいけないの？"].map((q, i) => <Quote key={i}>{q}</Quote>)}
+      <p style={{ fontSize: 15, fontWeight: 800, color: t.green, lineHeight: 1.7, margin: "20px 0 12px" }}>大丈夫です。覚える必要はありません。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>この手引きは、試験のための資料ではありません。繰り返し読んで、子どもの様子を観察して、また読んで、少しずつ「あ、そういうことか」と腹落ちしていくための道具です。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>最初から全部わかろうとしなくていいです。わからないまま読み進めて構いません。大切なのは、あなた自身が問いを持ち続けることです。実はそれ自体が、子どもが学校でやっていることと同じです。</p>
+      <SectionDivider />
+      <div style={{ marginBottom: 8 }}><Tag text="共通する問題意識" color={t.brown} /></div>
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: t.ink, margin: "10px 0 12px" }}>3つの指針を知る前に</h2>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 16 }}>これから紹介する3つの指針はそれぞれ異なる組織が異なる目的で作りましたが、出発点にある問題意識は同じです。</p>
+      <Quote>知識を暗記して、正解を出すだけの学びでは、これからの社会を生きていけない</Quote>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>この問題意識は、日本だけでなく世界中で共有されています。社会の変化のスピードが、かつてとは比べものにならないほど速くなったからです。AIが多くの知識労働を代替し始め、気候変動・感染症・経済格差など国境を越えた問題が増えています。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>こうした時代に必要なのは「たくさん知っている人」ではなく「知らないことに向き合い、考え、行動できる人」だ、という認識が世界的に広がりました。3つの指針はそれぞれ、この認識への応答です。</p>
+      <SectionDivider />
+      <div style={{ marginBottom: 8 }}><Tag text="指針①" color={t.brown} /></div>
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: t.ink, margin: "10px 0 12px" }}>OECD Learning Compass 2030</h2>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>OECD（経済協力開発機構）は世界38カ国が加盟する国際機関で、「PISA（ピサ）」という学力調査を実施している組織です。日本も加盟国です。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>OECDは2019年、「Learning Compass 2030（学びの羅針盤2030）」というフレームワークを発表しました。羅針盤＝コンパスという名前には、こんな意味が込められています。</p>
+      <Quote>2030年に向けて、正解の道はわかりません。でも方向は示せます</Quote>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 8 }}>核心概念：Student Agency（生徒の主体性）</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>Learning Compass 2030の中心にあるのは「Student Agency」という概念です。「自分の人生と社会に対して、主体的に関わる力」と言えます。</p>
+      <div style={{ background: t.brownPale, borderRadius: 8, padding: "14px 18px", marginBottom: 16 }}>
+        {["自分で目標を設定できる", "状況を読んで判断できる", "行動できる", "その結果に責任をとれる", "振り返って次に活かせる"].map((item, i) => (
+          <div key={i} style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, display: "flex", gap: 8 }}><span style={{ color: t.brown, fontWeight: 700 }}>▸</span>{item}</div>
+        ))}
+      </div>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>OECDはStudent Agencyを育てるために、学校だけでなく家庭も重要だと明示しています。安心できる家庭環境、失敗しても戻ってこられる場所、これが子どもが外で挑戦するための土台になると言っています。</p>
+      <SectionDivider />
+      <div style={{ marginBottom: 8 }}><Tag text="指針②" color={t.blue} /></div>
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: t.ink, margin: "10px 0 12px" }}>日本の学習指導要領</h2>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>学習指導要領は、日本の学校で何をどのように教えるかを定めた国の基準です。SCGSは一条校（学校教育法第一条に定める小学校）であるため、学習指導要領に従う義務があります。IBだから日本の学習内容と切り離されている、ということはありません。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 16 }}>2017年の改訂の核心は「何ができるようになるか」を教育の中心に置いたこと。その目玉が「資質・能力の三本柱」です。</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+        {[
+          { num: "①", title: "知識・技能", desc: "何を知っているか、何ができるか" },
+          { num: "②", title: "思考力・判断力・表現力", desc: "知っていることをどう使うか" },
+          { num: "③", title: "学びに向かう力・人間性", desc: "どんな姿勢で学ぶか" },
+        ].map(({ num, title, desc }) => (
+          <div key={num} style={{ padding: "12px 16px", background: t.bluePale, borderRadius: 8, borderLeft: `4px solid ${t.blue}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: t.blue }}>{num} {title}</div>
+            <div style={{ fontSize: 13, color: t.muted, marginTop: 4 }}>{desc}</div>
+          </div>
+        ))}
+      </div>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>重要なのは、①だけが「学力」ではないと国が明示したことです。「IBだから日本の勉強と別物」というイメージを持っている方もいるかもしれません。でも並べてみると、思ったより重なっている部分が多いのです。</p>
+      <SectionDivider />
+      <div style={{ marginBottom: 8 }}><Tag text="指針③" color={t.green} /></div>
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: t.ink, margin: "10px 0 12px" }}>IB PYP</h2>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>IB（International Baccalaureate）は1968年にスイスで設立された非営利の教育機関です。世界160カ国以上、5600校以上で実施されており、SCGSもその認定校の一つです。よく「英語教育」のイメージで語られますが、IBの本質は言語ではなく、<strong>学び方のフレームワーク</strong>です。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 16 }}>PYP（Primary Years Programme）は3〜12歳を対象とした初等教育プログラムです。核心は「探究を通じた学び」——先生が正解を教えるのではなく、子どもが問いを立て、調べ、考え、表現し、振り返るサイクルを繰り返します。</p>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 10 }}>SCGSの三重構造</p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+        {[{ label: "一条校（小学校）", color: t.blue }, { label: "IB PYP認定校", color: t.green }, { label: "英語イマージョン", color: t.purple }].map(({ label, color }) => (
+          <span key={label} style={{ padding: "6px 14px", borderRadius: 20, fontSize: 13, fontWeight: 700, background: color, color: "#fff" }}>{label}</span>
+        ))}
+      </div>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>3つが同時に機能することで、知識・思考力・言語力が統合的に育つ設計になっています。</p>
+      <SectionDivider />
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: t.ink, marginBottom: 12 }}>3つの指針の共通点</h2>
+      <CompareTable headers={["", "OECD 2030", "学習指導要領", "IB PYP"]} rows={[["目指す姿", "主体的な変革者", "資質・能力の学び手", "Learner Profile"], ["学び方", "Agency重視", "主体的・対話的で深い学び", "探究サイクル"]]} colors={[t.brown, t.blue, t.green]} />
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>3つに共通しているのは、こういうことだと思います。</p>
+      <Quote>知識を持っているだけでは足りない。それを使って考え、行動できる人を育てる</Quote>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>SCGSは、この共通の方向性を持つ3つの指針を同時に実践している学校です。</p>
+      <SectionDivider />
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: t.ink, marginBottom: 12 }}>この手引きの使い方——暗記しないでください</h2>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 16 }}>OECD、Learning Compass、Student Agency、学習指導要領、資質・能力の三本柱、IB、PYP、Learner Profile……「多すぎる、覚えられない」と思った方もいるかもしれません。</p>
+      <p style={{ fontSize: 15, fontWeight: 800, color: t.green, marginBottom: 12 }}>覚えなくていいです。本当に。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 16 }}>これらの言葉は、子どもの様子を観察するときのレンズです。暗記して使うものではなく、繰り返し触れるうちに、子どもの様子と重なる瞬間が増えていくものです。</p>
+      <div style={{ background: t.greenPale, borderRadius: 10, padding: "16px 20px", marginBottom: 16 }}>
+        {["①言葉を知る（今ここ）", "②子どもの様子を観察する", "③「あ、あれがそれか」とつながる瞬間", "④また読む（少し違って見える）", "⑤また観察する", "⑥子どもの様子と重なる瞬間がだんだん増えていく"].map((item, i) => (
+          <div key={i} style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: t.green, fontWeight: 700, flexShrink: 0 }}>▸</span>{item}</div>
+        ))}
+      </div>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>このループを回すことが、この手引きの目的です。「わからない」という感覚を大切にしてください。それは新しい問いの入口です。お子さんが学校でやっていることと、全く同じです。</p>
+    </div>
+  );
+}
+
+function RouteA({ onNavigate }) {
+  return (
+    <div>
+      <ChapterSummary color={t.green} items={["「基礎学力」という言葉の意味が、実は更新されていること", "IBと学習指導要領が、学力についてどこで重なっているか", "家庭でできる具体的な声かけ"]} />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.green, marginBottom: 10 }}>Tuning In ――この問いを選んだあなたへ</h2>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>入学してしばらく経ち、こんな気持ちになっていませんか。</p>
+      <Quote>探究とか言って、毎日楽しそうにしているのはわかる。でも漢字や計算、ちゃんとできるようになるのかな。普通の小学校と比べて、学力面で遅れないか心配。</Quote>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>この不安、とても自然です。むしろ子どもの学びを真剣に考えているからこそ出てくる問いです。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>そう感じている保護者は多いようです。少し一緒に見てみましょう。視点を広げてみると、見える景色が変わるかもしれません。</p>
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.green, marginBottom: 10 }}>Finding Out ――まず「基礎学力」を解剖する</h2>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>「基礎学力が心配」と言うとき、多くの場合こういうイメージだと思います。漢字を正しく書けること・計算を速く正確にできること・学年相当の読解ができること。これは間違いではありません。でも2017年に改訂された学習指導要領は、「基礎学力」の定義を静かに、しかし大きく更新しています。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>文部科学省は子どもに育てるべき力を三本柱で整理しました。</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+        {[
+          { num: "①", title: "知識・技能", desc: "何を知っているか、何ができるか" },
+          { num: "②", title: "思考力・判断力・表現力", desc: "知っていることをどう使うか" },
+          { num: "③", title: "学びに向かう力・人間性", desc: "どんな姿勢で学ぶか" },
+        ].map(({ num, title, desc }) => (
+          <div key={num} style={{ padding: "10px 14px", background: t.bluePale, borderRadius: 8, borderLeft: `4px solid ${t.blue}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: t.blue }}>{num} {title}</div>
+            <div style={{ fontSize: 13, color: t.muted, marginTop: 3 }}>{desc}</div>
+          </div>
+        ))}
+      </div>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>重要なのは、①だけが「基礎学力」ではない、と国が明示したことです。②と③がなければ、①は「使えない知識」になる、という問題意識がここにあります。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>IB PYPも同じ問題意識を持っています。IBは漢字や計算を軽視しているのではなく、文脈の中に置いているのです。「水の循環」を探究するUnit of Inquiryの中で、関連する語彙・漢字・グラフの読み取り・計算が登場する——「なぜこれを知る必要があるか」が見える状態で学ぶのがIBの設計です。</p>
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.green, marginBottom: 10 }}>Sorting Out ――2つの学力観を並べてみる</h2>
+      <CompareTable headers={["", "従来型の学力観", "学習指導要領＋IBの学力観"]} rows={[["何を重視するか", "正確な知識の再現", "知識を使って考える力"], ["評価の対象", "テストの点数", "プロセス・思考・表現"], ["漢字・計算の位置づけ", "それ自体が目的", "考えるための道具"], ["「できる」の定義", "正解を出せる", "問いに向き合える"]]} colors={[t.muted, t.green]} />
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>どちらが正しいかという話ではありません。「両方あるよね」くらいの感覚で眺めてみてください。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>ここで自分に問いかけてみてください。「我が子に心配しているのは、①の柱だけですか？それとも②③も含めてですか？」</p>
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.green, marginBottom: 10 }}>Going Further ――SCGSの文脈で考える</h2>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 6 }}>一条校であることの意味</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>SCGSは一条校であるため、日本の学習指導要領に基づいた教育内容を扱うことが前提になります。国語・算数・理科・社会・音楽・図工・体育・生活、これらは学習指導要領に沿って学びます。もちろん具体的な進度や教材は学校の運用によりますので、気になることは直接聞いてみるのが一番です。</p>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 6 }}>では何が違うのか</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>「何を教えるか」はほぼ同じです。「どう教えるか」「何のために教えるか」が違います。算数の分数を例にすると——一般的な授業では分数の計算方法を教え練習問題を解きますが、IBの文脈では「フェアに分けるとはどういうことか」という問いの中で分数が自然に登場します。計算方法は、問いを解くための道具として学ぶのです。</p>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 6 }}>英語イマージョンと基礎学力</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>「英語で授業をしているから、日本語の学力が心配」という声はよく聞きます。ただ、第二言語で学ぶことが必ず第一言語の発達を妨げるとは言えないようです。二言語を行き来する経験が、言語そのものへの意識を育てるという見方もあります。とはいえ、家庭での日本語の会話や読書は引き続き大切にしたいところです。</p>
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.green, marginBottom: 10 }}>Making Conclusions ――自分の言葉で整理する</h2>
+      {["漢字・計算・読解は、SCGSでも学びます。一条校として学習指導要領に基づいた教育内容を扱うことが前提になっているからです。もちろん具体的な進度や教材は学校の運用によりますので、気になることは直接聞いてみるのが一番です。", "ただし「基礎学力」の定義が更新されています。国の学習指導要領も、IBも、「知識を持っているだけでは足りない」という立場をとっています。", "IBは基礎学力を否定していません。文脈に置いています。「なぜこれを学ぶのか」が見える状態で知識・技能を学ぶのがIBの設計です。"].map((text, i) => (
+        <div key={i} style={{ display: "flex", gap: 10, marginBottom: 10, fontSize: 14, color: t.ink, lineHeight: 1.8 }}><span style={{ color: t.green, fontWeight: 700, flexShrink: 0 }}>▸</span><span>{text}</span></div>
+      ))}
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.green, marginBottom: 10 }}>Taking Action ――明日から変えてみること</h2>
+      <ActionTable rows={[["「今日は何を習った？」", "「今日、一番不思議だと思ったことは？」"], ["「ドリルやった？」", "「どこまでわかって、どこからわからなかった？」"], ["「答え合ってた？」", "「どうやって考えたの？」"], ["「ちゃんと覚えてる？」", "「それ、他のことにも使えそう？」"]]} />
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>一度に全部変えなくていいです。一つだけ試してみてください。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>市販のドリルや反復練習は、IBと矛盾しません。「計算が速くなると、もっと大事なことを考える時間が増えるよ」——道具を磨く意味を子どもに伝えると、取り組み方が変わります。</p>
+      <NextRoutes onNavigate={onNavigate} items={[{ text: "「基礎学力の心配は和らいだ。でも探究型学習って具体的に何をしているの？」", route: "B" }, { text: "「家庭での声かけをもっと具体的に知りたい」", route: "C" }]} />
+    </div>
+  );
+}
+
+function RouteB({ onNavigate }) {
+  return (
+    <div>
+      <ChapterSummary color={t.blue} items={["Unit of Inquiryという学びの単元の仕組み", "ATLスキルという学びを支える5つの道具", "探究サイクルの6段階と、Learner Profileという人物像", "参観日に「何を見ればいいか」のヒント"]} />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.blue, marginBottom: 10 }}>Tuning In ――この問いを選んだあなたへ</h2>
+      <Quote>楽しそうにしているのはわかる。でも何をしているのか、いまいち掴めない。「今日何したの？」と聞いても「探究した」としか返ってこない。</Quote>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>これは多くの保護者が感じることです。探究型学習は「見えにくい」のです。なぜ見えにくいか。それは、学びの主役が先生ではなく子どもだからです。</p>
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.blue, marginBottom: 10 }}>Finding Out ――探究型学習の構造を知る</h2>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 8 }}>Unit of Inquiry（UOI）とは何か</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>PYPの学びの核心は「Unit of Inquiry（探究の単元）」、略してUOIと呼ばれます。一つのUOIが数週間から数ヶ月続き、複数の教科が一つのテーマのもとに統合されます。</p>
+      <div style={{ background: t.bluePale, borderRadius: 8, padding: "14px 18px", marginBottom: 16, fontSize: 13, color: t.ink, lineHeight: 1.9 }}>超教科的テーマ → Central Idea（単元を貫く大きな考え）→ Lines of Inquiry（探究の方向線）→ 子どもたちの問い → 調査・実験・対話・制作・振り返り</div>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 8 }}>6つの超教科的テーマ</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+        {["私たちは誰か", "私たちがいる場所と時代", "私たちはどのように自分を表現するか", "世界はどのように動いているか", "私たちはどのように地球を共有するか", "私たちはどのように自分自身を組織するか"].map((th, i) => (
+          <div key={i} style={{ fontSize: 14, color: t.ink, lineHeight: 1.7, display: "flex", gap: 8 }}><span style={{ color: t.blue, fontWeight: 700, flexShrink: 0 }}>▸</span>{th}</div>
+        ))}
+      </div>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 8 }}>探究サイクルの6段階</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+        {[["Tuning In（つながる）", "テーマに触れ、すでに知っていることや感じることを引き出す"], ["Finding Out（調べる）", "資料・実験・インタビュー・観察などで情報を集める"], ["Sorting Out（整理する）", "集めた情報を分類・比較・関連づける"], ["Going Further（深める）", "新しい問いを立て、さらに掘り下げる"], ["Making Conclusions（結論を出す）", "自分なりの理解をまとめ、表現する"], ["Taking Action（行動する）", "学んだことを実生活に結びつけ、何かを変える"]].map(([title, desc], i) => (
+          <div key={i} style={{ padding: "10px 14px", background: i % 2 === 0 ? t.bluePale : "#fff", borderRadius: 6, fontSize: 13 }}>
+            <span style={{ fontWeight: 700, color: t.blue }}>{title}</span><span style={{ color: t.muted }}>：{desc}</span>
+          </div>
+        ))}
+      </div>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 16 }}>気づきましたか。この手引き自体がこのサイクルに沿って設計されています。保護者の皆さんも今、探究サイクルの中にいます。</p>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 8 }}>ATLスキル（学びを支える5つの道具）とは何か</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>IBには「ATLスキル（Approaches to Learning：学習のアプローチ）」という考え方があります。これは、子どもが学びを進める上で土台となる5つのスキルのことです。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 16 }}>IBには、「学び方を学ぶことが教育の基本である」という信念があります。何を学ぶかだけでなく、どう学ぶか——その力を意識的に育てるのがATLスキルです。</p>
+      <ATLSkillsTable />
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>学年が上がるごとに、これらのスキルをどう育てるかの目標が設定されています。学校では、子どもたちが親しみやすいように、キャラクターなどを使ってこれらのスキルを意識できるような工夫がされているそうです。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 16 }}>ATLスキルは、UOI（探究の単元）とLearner Profile（学習者像）をつなぐ「道具」のようなものです。子どもが「うまく考えられなかった」「友達とうまく協力できなかった」と話したとき、それは失敗ではなく、ATLスキルの中のどれかを育てている途中なのかもしれません。</p>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 8 }}>Learner Profile（学習者像）とは何か</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>PYPには「Learner Profile（学習者像）」と呼ばれる10の人物像があります。テストで測る成績ではなく、「どんな人間として育つか」を示す羅針盤です。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 16 }}>多くのIB校では、この10項目が教室の目立つ場所に掲示されています。子どもたちは毎日それを目にしながら学びます。「今日の自分はどうだったか」「どの像に近づけたか」——意識的にも無意識にも、自分のあるべき姿と日々の学びが結びついていく設計です。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>10項目は以下の通りです。それぞれ、「どんな人か」という人物像として読んでみてください。</p>
+      <LearnerProfileTable />
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 16 }}>知識は単元ごとに学びますが、この10項目は学校生活全体を通じて育まれます。学び方そのものが、人物像をつくっていく——IBはそう考えています。</p>
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.blue, marginBottom: 10 }}>Sorting Out ――従来の学習と比べてみる</h2>
+      <CompareTable headers={["", "教科書型の学習", "IBの探究型学習"]} rows={[["学びの起点", "教科書・先生の説明", "子どもの問い・疑問"], ["知識の性質", "既存の正解を受け取る", "探究を通じて構築する"], ["教科の扱い", "教科ごとに独立", "テーマのもとに統合"], ["先生の役割", "知識の伝達者", "探究のファシリテーター"], ["子どもの役割", "受け手", "学びの主体"]]} colors={[t.muted, t.blue]} />
+      <Quote>自分が子どものころ、学校で一番記憶に残っていることは、先生の説明ですか？それとも自分が夢中になって調べたり、作ったり、発表したりしたことですか？</Quote>
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.blue, marginBottom: 10 }}>Going Further ――具体的な場面で想像する</h2>
+      <div style={{ background: t.bluePale, borderRadius: 8, padding: "16px 20px", marginBottom: 16 }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: t.blue, marginBottom: 8 }}>架空のUOIの例</p>
+        <p style={{ fontSize: 13, color: t.ink, lineHeight: 1.7, marginBottom: 4 }}>テーマ：「私たちはどのように地球を共有するか」</p>
+        <p style={{ fontSize: 13, color: t.ink, lineHeight: 1.7, marginBottom: 8 }}>Central Idea：「資源の使われ方は、人々の選択と価値観を反映している」</p>
+        <p style={{ fontSize: 13, color: t.ink, lineHeight: 1.8 }}>最初の週、先生は答えを教えません。「資源って何だと思う？」「みんなの家で毎日使っているものを挙げてみて」と問いかけます。そこから「それはどこから来ているの？」「なくなったらどうなる？」「世界中で同じように使えている？」という問いが生まれ、算数・国語・理科・社会・英語が自然に絡まってきます。</p>
+      </div>
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.blue, marginBottom: 10 }}>Making Conclusions ――自分の言葉で整理する</h2>
+      {["子どもは毎日、問いを立て、調べ、考え、表現し、振り返っています。", "教科の知識はなくなっていません。Central Ideaという大きな問いのもとで統合的に学ばれています。", "参観日に見るべきは「正解を言えるか」ではなく「どんな問いを持っているか」「どう考えているか」です。"].map((text, i) => (
+        <div key={i} style={{ display: "flex", gap: 10, marginBottom: 10, fontSize: 14, color: t.ink, lineHeight: 1.8 }}><span style={{ color: t.blue, fontWeight: 700, flexShrink: 0 }}>▸</span><span>{text}</span></div>
+      ))}
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.blue, marginBottom: 10 }}>Taking Action ――明日から変えてみること</h2>
+      <ActionTable rows={[["「今日何を習った？」", "「今日、どんな問いが生まれた？」"], ["「発表うまくできた？」", "「発表して、自分の考えは変わった？」"], ["「先生に何て言われた？」", "「自分ではどう思った？」"], ["「わかった？」", "「まだわからないことは何？」"]]} />
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>「まだわからないことは何？」という問いは特に重要です。わからないことが残っているのは失敗ではない、新しい探究の始まりだ、というメッセージが伝わります。</p>
+      <NextRoutes onNavigate={onNavigate} items={[{ text: "「探究型学習の仕組みはわかった。家庭での関わり方を具体的に知りたい」", route: "C" }, { text: "「Learner Profileが将来どう活きるか、大きな文脈で見たい」", route: "D" }]} />
+    </div>
+  );
+}
+
+function RouteC({ onNavigate }) {
+  return (
+    <div>
+      <ChapterSummary color={t.purple} items={["管理・放任・伴走、3種類の関わり方の違い", "日常の場面ごとの具体的な声かけ", "「知らない」と言える大人でいることの意味"]} />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.purple, marginBottom: 10 }}>Tuning In ――この問いを選んだあなたへ</h2>
+      <Quote>子どもが学校の課題を持って帰ってきた。どこまで手伝えばいいのか迷う。手伝いすぎると子どもの学びを奪う気がする。でも放っておくのも不安。結局、答えを教えてしまって、翌日モヤモヤする。</Quote>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>「正解の関わり方」は存在しません。ただ、方向性はあります。その方向性を一緒に考えます。</p>
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.purple, marginBottom: 10 }}>Finding Out ――保護者の役割を3つの視点から見る</h2>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 6 }}>IB PYPが考える保護者の役割</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>IBはPYPにおける保護者を「Co-learner（共に学ぶ人）」と位置づけています。「お父さんはそれ知らないな。一緒に調べてみようか」——この一言が、子どもに強烈なメッセージを送ります。「大人も知らないことがある」「知らないことは恥ずかしくない」「わからないから調べる、これが学びだ」。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 16 }}>逆に、親がすぐ答えを教えてしまうと別のメッセージが伝わります。「答えは大人が持っている」「自分で考える前に聞けばいい」。どちらのメッセージを日常的に届けているか。これが家庭の関わりの核心です。</p>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 6 }}>OECD 2030が描く家庭の姿</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>OECD Learning Compass 2030は、Well-being（幸福・健やかさ）を教育の重要な目的として位置づけています。家庭が「安心できる場所」であること、失敗しても戻ってこられる場所であること——これが子どもの主体的な学びの根っこになると言っています。Student Agencyは、安心感のある環境からしか育ちません。</p>
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.purple, marginBottom: 10 }}>Sorting Out ――3種類の関わり方を整理する</h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+        {[
+          { type: "①管理型", desc: "宿題チェック・答え確認・スケジュール管理", effect: "短期的成果は出るが、内発的動機が育ちにくい", color: t.muted, pale: t.faint },
+          { type: "②放任型", desc: "子どもに任せる・干渉しない", effect: "自律を尊重するが、低学年では不安が大きくなりやすい", color: t.muted, pale: t.faint },
+          { type: "③伴走型", desc: "一緒に考える・問いを返す・失敗を面白がる", effect: "子どもの内側の動機を引き出す。IBとOECDが目指す保護者像", color: t.purple, pale: t.purplePale },
+        ].map(({ type, desc, effect, color, pale }) => (
+          <div key={type} style={{ padding: "14px 16px", background: pale, borderRadius: 8, borderLeft: `4px solid ${color}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 6 }}>{type}</div>
+            <div style={{ fontSize: 13, color: t.ink, marginBottom: 4 }}>{desc}</div>
+            <div style={{ fontSize: 12, color: t.muted }}>{effect}</div>
+          </div>
+        ))}
+      </div>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>伴走型の本質は、<strong>答えを持たずに隣にいること</strong>です。</p>
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.purple, marginBottom: 10 }}>Going Further ――日常の場面で想像する</h2>
+      {[
+        { title: "宿題で詰まっているとき", body: "子どもが算数の問題で手が止まっています。「どこまではわかった？」と聞いてみてください。この問いで、子どもは自分の理解の輪郭を言語化します。多くの場合、話しながら自分で糸口を見つけます。" },
+        { title: "学校でうまくいかなかった日", body: "「今日、発表うまくできなかった」と言ってきました。「そっか。どのへんがうまくいかなかったと思う？」と聞いてみてください。失敗を評価せず、振り返りを促す——アドバイスは、子どもが「どうすればよかったか」を自分で言った後にするのが効果的です。" },
+        { title: "夕食の会話", body: "「最近、気になっていることある？」という問いは、子どもの内側にある好奇心に触れます。答えが返ってきたら、すぐ解説せず「それ、なんで気になったの？」「もし調べるとしたら何から始める？」とさらに問いを返してみてください。" },
+        { title: "子どもが「なんで？」と聞いてきたとき", body: "「なんで？」は探究の種です。すぐ答えず「いい問いだね。どう思う？」「一緒に考えてみようか」と返す——問いを持つことは価値がある、というメッセージが伝わります。" },
+      ].map(({ title, body }, i) => (
+        <div key={i} style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: t.purple, marginBottom: 6 }}>場面{i + 1}：{title}</p>
+          <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>{body}</p>
+        </div>
+      ))}
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.purple, marginBottom: 10 }}>Making Conclusions ――自分の言葉で整理する</h2>
+      {["特別なことをする必要はありません。日常の会話・失敗・好奇心の瞬間が、すべて学びの材料になります。", "「答えを教える人」から「問いを返す人」へ。この一つの転換が、家庭での関わりを根本から変えます。", "安心できる場所であることが最初の条件です。失敗しても戻ってこられる家庭が、子どもが外で挑戦するための土台になります。", "保護者自身が「知らない」と言える大人であること。それだけで、子どもに「探究する意味」が伝わります。"].map((text, i) => (
+        <div key={i} style={{ display: "flex", gap: 10, marginBottom: 10, fontSize: 14, color: t.ink, lineHeight: 1.8 }}><span style={{ color: t.purple, fontWeight: 700, flexShrink: 0 }}>▸</span><span>{text}</span></div>
+      ))}
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.purple, marginBottom: 10 }}>Taking Action ――明日から変えてみること</h2>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 16 }}>今週試す一つのこと：夕食の会話で一度だけ「最近、不思議だと思ったこと、ある？」と聞いてみてください。答えが返ってきたら、すぐ解説せず、もう一つ問いを返す。それだけです。</p>
+      <ActionTable rows={[["「答えは何だった？」", "「どうやって考えた？」"], ["「先生の言う通りにやって」", "「自分はどうしたいと思う？」"], ["「早く終わらせなさい」", "「今、どこまでわかってる？」"], ["「なんでできないの？」", "「どこで詰まってる？」"], ["「すごいね、正解だよ」", "「どうしてそう思ったの？」"]]} />
+      <NextRoutes onNavigate={onNavigate} items={[{ text: "「家庭の関わり方はわかった。将来どこにつながるのか大きな絵で見たい」", route: "D" }, { text: "「探究型学習の仕組みをもう少し深く理解したい」", route: "B" }]} />
+    </div>
+  );
+}
+
+function RouteD({ onNavigate }) {
+  return (
+    <div>
+      <ChapterSummary color={t.red} items={["OECD 2030が描く、これからの社会に必要な力", "PYP→中等部→DPという学びの縦の接続", "Learner Profileを大人の文脈で読み直す"]} />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.red, marginBottom: 10 }}>Tuning In ――この問いを選んだあなたへ</h2>
+      <Quote>IBって良さそうだとは思う。でも結局、大学受験や就職のときに役立つのか。探究や振り返りを重視して、肝心の将来につながらなかったら意味がない。</Quote>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>正直に言うと、10〜15年後の社会を正確に予測できる人は誰もいません。だからこそ、「何を知っているか」より「どう考えるか」を育てることに意味がある、というのがIB・学習指導要領・OECD 2030の共通した立場です。</p>
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.red, marginBottom: 10 }}>Finding Out ――3つの視点から未来を見る</h2>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 8 }}>OECD Learning Compass 2030が描く社会</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>OECDは2030年の社会を「変化が加速し、予測困難な世界。知識の量ではなく、知識を使って新しい価値を生み出す力が問われる」と描いています。OECDはさらに3つのコンピテンシーを挙げています。</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+        {[["新たな価値を創造する力", "既存の知識を組み合わせ、これまでにないものを生み出す"], ["対立やジレンマを解決する力", "正解のない問題に向き合い、折り合いをつける"], ["責任ある行動をとる力", "自分の行動が他者や社会に与える影響を考えて動く"]].map(([title, desc], i) => (
+          <div key={i} style={{ padding: "12px 16px", background: t.redPale, borderRadius: 8, borderLeft: `4px solid ${t.red}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: t.red, marginBottom: 4 }}>{title}</div>
+            <div style={{ fontSize: 13, color: t.muted }}>{desc}</div>
+          </div>
+        ))}
+      </div>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 8 }}>AI時代に「重要性が増す力」とは何か</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 16 }}>AIが発達すればするほど、「何を問うか」「何を大切にするか」を考える力の重要性が増していく、という見方があります。問いを立てること・意味や価値を考えること・他者と関わりながら判断すること・経験から価値観を形成すること。そう考えると、探究型学習が育てようとしていることの意味が、少し違って見えてくるかもしれません。</p>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 8 }}>PYP→中等部→DPという縦の接続</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 16 }}>
+        {[
+          { stage: "初等部（PYP）", items: ["問いを立てる習慣", "探究サイクルを体で覚える", "英語で考え表現する基盤"], color: t.green },
+          { stage: "中等部", items: ["探究姿勢を引き継ぎ、論理的・批判的思考を深化", "英語力のさらなる発展"], color: t.blue },
+          { stage: "高等部DP英語コース", items: ["Extended Essay（4000字の探究論文）", "Theory of Knowledge（知の理論）", "CAS（創造・活動・奉仕）", "国内外の大学への進学"], color: t.red },
+        ].map(({ stage, items, color }) => (
+          <div key={stage} style={{ padding: "12px 16px", background: "#fff", border: `1px solid ${color}44`, borderLeft: `4px solid ${color}`, borderRadius: "0 8px 8px 0" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 6 }}>{stage}</div>
+            {items.map((item, i) => <div key={i} style={{ fontSize: 13, color: t.muted, lineHeight: 1.7, display: "flex", gap: 6 }}><span style={{ color, flexShrink: 0 }}>▸</span>{item}</div>)}
+          </div>
+        ))}
+      </div>
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.red, marginBottom: 10 }}>Sorting Out ――3つのフレームワークを未来軸で整理する</h2>
+      <CompareTable headers={["", "OECD 2030", "学習指導要領", "IB PYP→DP"]} rows={[["目指す人物像", "主体的な変革者", "資質・能力の学び手", "Learner Profile"], ["AI時代への応答", "創造・解決・責任", "思考力・判断力・表現力", "探究・概念・行動"], ["将来への接続", "社会のWell-being", "生涯学び続ける力", "大学・グローバル進路"]]} colors={[t.brown, t.blue, t.green]} />
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.red, marginBottom: 10 }}>Going Further ――10年後を想像する</h2>
+      <div style={{ background: t.redPale, borderRadius: 8, padding: "16px 20px", marginBottom: 16 }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: t.red, marginBottom: 8 }}>架空の場面で見てみる</p>
+        <p style={{ fontSize: 13, color: t.ink, lineHeight: 1.8 }}>今、小学2年生の子どもが15年後、就職活動をしています。面接官に聞かれます。「あなたが解決したい問題は何ですか？なぜですか？どうアプローチしますか？」——この問いに答えられるかどうかは、知識の量ではありません。自分が何に関心を持っているか知っているか、問題を自分の言葉で定義できるか、根拠を持って考えを組み立てられるか。これはPYPで毎日練習していることです。</p>
+      </div>
+      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, marginBottom: 10 }}>Learner Profileを大人の文脈で読み直す</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+        {[["探究する人", "課題を自分で見つけられる人"], ["考える人", "批判的に情報を評価できる人"], ["コミュニケーター", "多様な相手と対話できる人"], ["思いやりのある人", "チームで他者を支えられる人"], ["挑戦する人", "不確実な状況でも動ける人"], ["振り返る人", "経験から学び続けられる人"]].map(([from, to], i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, padding: "8px 0", borderBottom: `1px solid ${t.faint}` }}>
+            <span style={{ color: t.red, fontWeight: 700, minWidth: 120 }}>{from}</span>
+            <span style={{ color: t.muted }}>→</span>
+            <span style={{ color: t.ink }}>{to}</span>
+          </div>
+        ))}
+      </div>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>仕事のためだけではなく、研究でも、地域でも、家族との関係の中でも、ずっと使い続けられる力だと思います。「将来のために今だけ我慢する」のではなく、今の学び方そのものが将来に直結しているということです。</p>
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.red, marginBottom: 10 }}>Making Conclusions ――自分の言葉で整理する</h2>
+      {["IBは大学受験のための道具ではありません。ただし大学進学にも十分対応しています。IB資格は世界の大学に認められており、国内大学でもIB入試が広がっています。", "10〜15年後の社会は予測できません。だからこそ「問い方」を育てることに意味があります。", "PYPで育てているのは今だけに使えるスキルではありません。探究する習慣・振り返る力・他者と考える姿勢は、DPの論文で、大学の研究で、社会の仕事で繰り返し使われます。", "Learner Profileは成績表ではなく、人生の羅針盤です。"].map((text, i) => (
+        <div key={i} style={{ display: "flex", gap: 10, marginBottom: 10, fontSize: 14, color: t.ink, lineHeight: 1.8 }}><span style={{ color: t.red, fontWeight: 700, flexShrink: 0 }}>▸</span><span>{text}</span></div>
+      ))}
+      <SectionDivider />
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: t.red, marginBottom: 10 }}>Taking Action ――明日から変えてみること</h2>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>子どもと一緒にLearner Profileを読んで、「この中で、今の自分に一番当てはまると思うのはどれ？」「これからもっと育てたいと思うのはどれ？」と聞いてみてください。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 12 }}>「将来何になりたい？」より「どんな大人でいたい？」と聞く方が深い会話になります。答えはすぐ出なくていいです。問いを持ち続けることが大事です。</p>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>最後に、自分自身への問いです。「私は今、自分の人生の主体として生きているか？」「子どもに見せている大人の姿は、どんなメッセージを伝えているか？」子どもはLearner Profileを学校で学びます。でも最も強く影響を受けるのは、家庭で毎日見ている大人の姿です。</p>
+      <NextRoutes onNavigate={onNavigate} items={[{ text: "「大きな絵はわかった。でも日々の基礎学力が心配という気持ちが残っている」", route: "A" }, { text: "「将来を見据えて、家庭での関わり方をもう一度整理したい」", route: "C" }, { text: "「探究型学習の具体的な仕組みをもう少し深く理解したい」", route: "B" }]} />
+    </div>
+  );
+}
+
+function Summary() {
+  return (
+    <div>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8, marginBottom: 20 }}>各Routeを読んで、「で、結局何をすればいいの？」と思った方へ。難しく考えなくて大丈夫です。まず一つだけ試してみてください。</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
+        {["「今日何を習った？」を「今日、どんな問いが生まれた？」に変える", "子どもの「なんで？」を、すぐ答えず「どう思う？」と返してみる", "「わからない」を否定せず「いい問いだね」と受け止める", "子どもの失敗を評価ではなく「次はどうする？」という振り返りにつなげる", "大人自身も「知らないから一緒に調べよう」と言ってみる"].map((item, i) => (
+          <div key={i} style={{ display: "flex", gap: 14, padding: "14px 16px", background: "#fff", borderRadius: 8, border: `1px solid ${t.faint}`, alignItems: "flex-start" }}>
+            <span style={{ width: 28, height: 28, borderRadius: "50%", background: t.green, color: "#fff", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</span>
+            <span style={{ fontSize: 14, color: t.ink, lineHeight: 1.7, paddingTop: 4 }}>{item}</span>
+          </div>
+        ))}
+      </div>
+      <p style={{ fontSize: 14, color: t.ink, lineHeight: 1.8 }}>全部やろうとしなくていいです。一つだけ、今週試してみてください。そして気になることが出てきたら、またどこかのRouteに戻ってみてください。</p>
+    </div>
+  );
+}
+
+function App() {
+  const [page, setPage] = useState("intro");
+  const [scrolled, setScrolled] = useState(false);
+
+  const navItems = [
+    { id: "intro", label: "はじめに", color: t.green },
+    { id: "A", label: "Route A", sub: "基礎学力", color: t.green },
+    { id: "B", label: "Route B", sub: "探究学習", color: t.blue },
+    { id: "C", label: "Route C", sub: "家庭の関わり", color: t.purple },
+    { id: "D", label: "Route D", sub: "将来への接続", color: t.red },
+    { id: "summary", label: "まとめ", color: t.green },
+    { id: "faq", label: "FAQ", color: t.green },
+  ];
+
+  useEffect(() => { window.scrollTo(0, 0); setScrolled(false); }, [page]);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 48);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const currentRoute = ["A", "B", "C", "D"].includes(page) ? routeConfig[page] : null;
+
+  return (
+    <div style={{ background: t.bg, minHeight: "100vh", fontFamily: "'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic', sans-serif" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ background: t.green, overflow: "hidden", maxHeight: scrolled ? 0 : 64, transition: "max-height 0.25s ease" }}>
+          <div style={{ maxWidth: 680, margin: "0 auto", padding: "14px 20px" }}>
+            <div style={{ fontSize: 11, color: "#ffffff88", letterSpacing: "0.08em", marginBottom: 2 }}>保護者有志・非公式コンテンツ</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>SCGS初等部 IB理解の手引き</div>
+          </div>
+        </div>
+        <div style={{ background: "#fff", borderBottom: `1px solid ${t.faint}`, overflowX: "auto" }}>
+          <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", padding: "0 12px" }}>
+            {navItems.map(({ id, label, sub, color }) => (
+              <button key={id} onClick={() => setPage(id)} style={{ padding: "12px 14px", border: "none", borderBottom: page === id ? `3px solid ${color}` : "3px solid transparent", background: "none", cursor: "pointer", whiteSpace: "nowrap", color: page === id ? color : t.muted, fontWeight: page === id ? 700 : 400, fontSize: 13, transition: "all 0.15s" }}>
+                {label}{sub && <span style={{ display: "block", fontSize: 10, color: page === id ? color : t.faint, marginTop: 1 }}>{sub}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 680, margin: "0 auto", padding: "28px 20px 60px" }}>
+        {currentRoute && (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <span style={{ fontSize: 24 }}>{currentRoute.emoji}</span>
+              <span style={{ padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: currentRoute.color, color: "#fff" }}>{currentRoute.label}</span>
+            </div>
+            <h1 style={{ fontSize: 22, fontWeight: 900, color: t.ink, lineHeight: 1.3, margin: 0 }}>
+              {page === "A" && "基礎学力は大丈夫？"}{page === "B" && "探究型学習って何をしているの？"}{page === "C" && "家庭でどう関わればいい？"}{page === "D" && "将来どうつながるの？"}
+            </h1>
+          </div>
+        )}
+
+        {page === "intro" && (
+          <>
+            <h1 style={{ fontSize: 22, fontWeight: 900, color: t.ink, marginBottom: 20 }}>はじめに</h1>
+            <Page0 />
+            <div style={{ marginTop: 32, padding: "20px 24px", background: t.greenPale, borderRadius: 12, border: `1px solid ${t.green}33` }}>
+              <p style={{ fontSize: 14, fontWeight: 700, color: t.green, marginBottom: 12 }}>さあ、あなたの問いから始めましょう</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  { id: "A", label: "基礎学力は大丈夫？", desc: "漢字・計算・読解への不安がある方", emoji: "📚" },
+                  { id: "B", label: "探究型学習って何をしているの？", desc: "授業の仕組みを具体的に知りたい方", emoji: "🔍" },
+                  { id: "C", label: "家庭でどう関わればいい？", desc: "日々の関わり方を変えたい方", emoji: "🏠" },
+                  { id: "D", label: "将来どうつながるの？", desc: "大きな文脈・将来への接続を知りたい方", emoji: "🧭" },
+                ].map(({ id, label, desc, emoji }) => (
+                  <button key={id} onClick={() => setPage(id)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 8, background: "#fff", border: `1px solid ${routeConfig[id].color}44`, cursor: "pointer", textAlign: "left" }}>
+                    <span style={{ fontSize: 20 }}>{emoji}</span>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: routeConfig[id].color }}>{label}</div>
+                      <div style={{ fontSize: 12, color: t.muted, marginTop: 2 }}>{desc}</div>
+                    </div>
+                    <span style={{ marginLeft: "auto", color: routeConfig[id].color, fontSize: 16 }}>→</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {page === "A" && <RouteA onNavigate={setPage} />}
+        {page === "B" && <RouteB onNavigate={setPage} />}
+        {page === "C" && <RouteC onNavigate={setPage} />}
+        {page === "D" && <RouteD onNavigate={setPage} />}
+        {page === "summary" && <><h1 style={{ fontSize: 22, fontWeight: 900, color: t.ink, marginBottom: 20 }}>明日からできる5つのこと</h1><Summary /></>}
+        {page === "faq" && <><h1 style={{ fontSize: 22, fontWeight: 900, color: t.ink, marginBottom: 20 }}>よくある質問</h1><FAQ /></>}
+
+        <div style={{ marginTop: 48, padding: "16px", background: t.faint, borderRadius: 8, fontSize: 12, color: t.muted, lineHeight: 1.8, textAlign: "center" }}>
+          このコンテンツは聖隷クリストファーグローバルスクール初等部の保護者有志による非公式な学習・理解促進コンテンツです。学校公式の見解ではありません。正確な制度・運用は学校の公式案内をご確認ください。
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
